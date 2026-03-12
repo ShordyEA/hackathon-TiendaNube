@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHORDY.CORE | Systems Engineering V5</title>
+    <title>SHORDY.CORE | Systems Engineering V6</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -27,7 +27,6 @@
             background: linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%);
         }
 
-        /* Efecto de carga cinético */
         @keyframes shimmer {
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
@@ -45,16 +44,14 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback } = React;
 
-        // INSTANCIAS V5 - Selección de 2026 basada en estabilidad y CORS permissive
+        // INSTANCIAS V6 - Selección optimizada
         const INITIAL_SERVERS = [
-            { name: "Piped Tokyo", url: "https://pipedapi.tokyo.shared.xyz", type: "piped" },
-            { name: "Piped Rivo", url: "https://pipedapi.rivo.me", type: "piped" },
             { name: "Piped Kavin", url: "https://pipedapi.kavin.rocks", type: "piped" },
+            { name: "Piped Rivo", url: "https://pipedapi.rivo.me", type: "piped" },
+            { name: "Invidious Nerdy", url: "https://inv.nrd.li", type: "invidious" },
             { name: "Invidious v0l", url: "https://invidious.v0l.io", type: "invidious" },
             { name: "Invidious Pizza", url: "https://inv.tux.pizza", type: "invidious" }
         ];
-
-        const CATEGORIES = ["Ingeniería", "Sistemas", "Software", "Tech", "Cybersec", "Lo-fi", "Gaming"];
 
         const App = () => {
             const [videos, setVideos] = useState([]);
@@ -63,45 +60,48 @@
             const [selectedVideo, setSelectedVideo] = useState(null);
             const [activeServer, setActiveServer] = useState(INITIAL_SERVERS[0]);
             const [logs, setLogs] = useState([]);
-            const [showCustomConfig, setShowCustomConfig] = useState(false);
-            const [customUrl, setCustomUrl] = useState("");
+            const [useProxy, setUseProxy] = useState(true);
 
             const addLog = (msg, type = "info") => {
                 const time = new Date().toLocaleTimeString();
                 setLogs(prev => [{ time, msg, type }, ...prev].slice(0, 10));
             };
 
+            // Túnel de Ingeniería para saltar CORS
+            const fetchWithProxy = async (url) => {
+                if (!useProxy) return fetch(url);
+                
+                // Usamos un puente CORS gratuito y robusto
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+                const json = await response.json();
+                
+                if (json.contents) {
+                    return {
+                        ok: true,
+                        json: () => Promise.resolve(JSON.parse(json.contents))
+                    };
+                }
+                throw new Error("Proxy response invalid");
+            };
+
             const fetchContent = useCallback(async (endpoint = 'trending') => {
                 setLoading(true);
                 let success = false;
                 
-                addLog(`Iniciando Sincronización V5 en ${window.location.hostname}...`);
+                addLog(`Iniciando Tunneling V6 en ${window.location.hostname}...`);
 
-                // Si hay URL personalizada, va de primera
-                const serversToTry = customUrl 
-                    ? [{ name: "Servidor Manual", url: customUrl, type: customUrl.includes('api') ? 'piped' : 'invidious' }, ...INITIAL_SERVERS]
-                    : INITIAL_SERVERS;
-
-                for (const server of serversToTry) {
+                for (const server of INITIAL_SERVERS) {
                     try {
-                        addLog(`Intentando Handshake: ${server.name}`);
+                        addLog(`Intentando Bridge: ${server.name}`);
                         
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 7000);
-
                         const isInv = server.type === 'invidious';
-                        const apiPath = isInv
+                        let apiPath = isInv
                             ? `${server.url}/api/v1/${endpoint === 'trending' ? 'trending?region=EC' : endpoint}`
                             : `${server.url}/${endpoint === 'trending' ? 'trending?region=EC' : endpoint}`;
 
-                        const response = await fetch(apiPath, { 
-                            method: 'GET',
-                            signal: controller.signal,
-                            headers: { 'Accept': 'application/json' }
-                        });
+                        const response = await fetchWithProxy(apiPath);
                         
-                        clearTimeout(timeoutId);
-
                         if (!response.ok) throw new Error(`Status ${response.status}`);
                         
                         const data = await response.json();
@@ -123,7 +123,7 @@
                                 title: v.title,
                                 author: v.uploaderName || v.uploader,
                                 thumb: v.thumbnail || `https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`,
-                                views: v.views?.toLocaleString() || "En vivo",
+                                views: v.views?.toLocaleString() || "Streaming",
                                 date: v.uploadedDate
                             }));
                         }
@@ -131,22 +131,21 @@
                         if (normalized && normalized.length > 0) {
                             setVideos(normalized);
                             setActiveServer(server);
-                            addLog(`Vínculo exitoso: ${server.name}`, "success");
+                            addLog(`Enlace bypass exitoso: ${server.name}`, "success");
                             success = true;
                             break;
                         }
                     } catch (e) {
-                        const isTimeout = e.name === 'AbortError';
-                        addLog(`${server.name}: ${isTimeout ? 'Timeout' : 'CORS/Refused'}`, "error");
+                        addLog(`${server.name}: Error de Tunelización`, "error");
                     }
                 }
 
                 if (!success) {
-                    addLog("CRÍTICO: No hay respuesta del backend. Verifica logs.", "error");
+                    addLog("CRÍTICO: El Firewall de las APIs es impenetrable hoy.", "error");
                 }
                 setLoading(false);
-                setTimeout(() => window.lucide.createIcons(), 200);
-            }, [customUrl]);
+                setTimeout(() => window.lucide && window.lucide.createIcons(), 200);
+            }, [useProxy]);
 
             useEffect(() => {
                 fetchContent();
@@ -159,7 +158,7 @@
             };
 
             return (
-                <div className="flex min-h-screen bg-[#010101] selection:bg-red-500/30">
+                <div className="flex min-h-screen bg-[#010101]">
                     {/* SIDEBAR */}
                     <aside className="w-72 border-r border-white/5 hidden xl:flex flex-col fixed h-full bg-[#010101] z-50">
                         <div className="p-8 mb-2 flex items-center gap-4">
@@ -167,24 +166,33 @@
                                 <i data-lucide="zap" className="text-white w-6 h-6 fill-current"></i>
                             </div>
                             <div>
-                                <h1 className="font-black tracking-tighter text-2xl leading-none">SHORDY</h1>
-                                <p className="text-[10px] font-bold text-red-600 tracking-[0.4em] mt-1 uppercase">Cloud Engine</p>
+                                <h1 className="font-black tracking-tighter text-2xl leading-none uppercase">Shordy</h1>
+                                <p className="text-[10px] font-bold text-red-600 tracking-[0.4em] mt-1 uppercase">Core V6 Proxy</p>
                             </div>
                         </div>
                         
                         <nav className="flex-1 px-4 space-y-1">
                             <NavItem icon="monitor" label="Main Station" active={true} onClick={() => fetchContent('trending')} />
-                            <NavItem icon="activity" label="Network" onClick={() => fetchContent('trending')} />
+                            <NavItem icon="activity" label="Network Feed" onClick={() => fetchContent('trending')} />
                             <div className="my-8 border-t border-white/5 mx-2"></div>
-                            <NavItem icon="settings" label="Configuración" onClick={() => setShowCustomConfig(!showCustomConfig)} />
-                            <NavItem icon="terminal" label="Developer Logs" />
+                            <div className="px-6 py-4 bg-zinc-900/40 rounded-3xl border border-white/5 mx-2">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] font-black text-zinc-500 uppercase">CORS Bypass</span>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={useProxy} 
+                                        onChange={() => setUseProxy(!useProxy)}
+                                        className="w-4 h-4 accent-red-600"
+                                    />
+                                </div>
+                                <p className="text-[9px] text-zinc-600 leading-tight">Usa un túnel externo para evitar el bloqueo del navegador.</p>
+                            </div>
                         </nav>
 
-                        {/* CONSOLA DE INGENIERÍA */}
-                        <div className="p-6 m-6 bg-zinc-900/30 rounded-[2.5rem] border border-white/5 backdrop-blur-xl">
+                        <div className="p-6 m-6 bg-zinc-900/20 rounded-[2.5rem] border border-white/5">
                             <div className="flex items-center justify-between mb-4">
-                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">System Output</span>
-                                <div className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div>
+                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Logs de Sistemas</span>
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                             </div>
                             <div className="space-y-2 font-mono text-[9px] max-h-40 overflow-y-auto custom-scrollbar">
                                 {logs.map((l, i) => (
@@ -196,58 +204,29 @@
                         </div>
                     </aside>
 
-                    {/* MAIN CONTENT AREA */}
+                    {/* MAIN */}
                     <main className="flex-1 xl:ml-72 relative">
-                        {/* HEADER */}
                         <header className="sticky top-0 h-24 glass z-40 flex items-center justify-between px-10 border-b border-white/5">
-                            <div className="flex-1 max-w-2xl">
-                                <form onSubmit={handleSearch} className="relative group">
-                                    <i data-lucide="search" className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 group-focus-within:text-red-500 transition-colors"></i>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Buscar via APIs externas..." 
-                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-14 pr-6 outline-none focus:ring-2 focus:ring-red-600/20 focus:bg-white/10 transition-all text-sm font-semibold"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                </form>
-                            </div>
+                            <form onSubmit={handleSearch} className="flex-1 max-w-2xl relative group">
+                                <i data-lucide="search" className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 group-focus-within:text-red-500 transition-colors"></i>
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar videos via Proxy..." 
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-14 pr-6 outline-none focus:ring-2 focus:ring-red-600/20 transition-all text-sm font-semibold"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </form>
                             <div className="flex items-center gap-6 ml-6">
                                 <div className="text-right hidden sm:block">
-                                    <p className="text-[10px] font-black text-zinc-500 uppercase">Active Server</p>
-                                    <p className="text-xs font-bold truncate max-w-[120px]">{activeServer.name}</p>
+                                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Active Station</p>
+                                    <p className="text-xs font-bold text-white uppercase">{activeServer.name}</p>
                                 </div>
                                 <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center font-black text-red-600 shadow-xl">S</div>
                             </div>
                         </header>
 
                         <div className="px-10 py-10 pb-40">
-                            {/* CONFIGURACIÓN MANUAL PARA SHORDY */}
-                            {showCustomConfig && (
-                                <div className="mb-10 p-8 bg-zinc-900/50 border border-red-600/20 rounded-[2.5rem] animate-in slide-in-from-top-4 duration-500">
-                                    <h3 className="text-lg font-black mb-2 flex items-center gap-2">
-                                        <i data-lucide="wrench" className="w-5 h-5 text-red-600"></i>
-                                        MODO INGENIERO
-                                    </h3>
-                                    <p className="text-xs text-zinc-500 mb-6">Si las APIs públicas fallan, ingresa una URL de instancia funcional.</p>
-                                    <div className="flex gap-3">
-                                        <input 
-                                            type="text" 
-                                            placeholder="https://instancia.piped.rocks"
-                                            className="flex-1 bg-black/50 border border-white/10 rounded-xl px-6 py-3 text-sm font-mono outline-none focus:border-red-600"
-                                            value={customUrl}
-                                            onChange={(e) => setCustomUrl(e.target.value)}
-                                        />
-                                        <button 
-                                            onClick={() => fetchContent()}
-                                            className="px-8 py-3 bg-red-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-500 transition-all"
-                                        >
-                                            Aplicar
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
                             {selectedVideo && (
                                 <div className="mb-20 animate-in fade-in zoom-in-95 duration-700">
                                     <div className="aspect-video w-full rounded-[3rem] overflow-hidden bg-black border border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,1)] relative group">
@@ -260,50 +239,36 @@
                                             frameBorder="0"
                                             allowFullScreen
                                         />
-                                        <div className="absolute top-6 left-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => setSelectedVideo(null)} className="p-3 bg-black/60 backdrop-blur-md rounded-2xl text-white">
-                                                <i data-lucide="x" className="w-5 h-5"></i>
-                                            </button>
-                                        </div>
+                                        <button onClick={() => setSelectedVideo(null)} className="absolute top-6 right-6 p-3 bg-black/60 backdrop-blur-md rounded-2xl text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <i data-lucide="x" className="w-5 h-5"></i>
+                                        </button>
                                     </div>
-                                    <div className="mt-12 flex flex-col lg:flex-row justify-between items-start gap-10">
-                                        <div className="max-w-4xl space-y-6">
-                                            <h1 className="text-5xl font-black tracking-tighter leading-tight text-white">{selectedVideo.title}</h1>
-                                            <div className="flex items-center gap-6">
-                                                <div className="w-16 h-16 rounded-[2rem] shordy-gradient flex items-center justify-center font-black text-3xl text-white">
-                                                    {selectedVideo.author?.[0] || 'S'}
-                                                </div>
-                                                <div>
-                                                    <p className="font-black text-xl tracking-tighter">{selectedVideo.author}</p>
-                                                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.4em]">Engineered Channel</p>
-                                                </div>
+                                    <div className="mt-12 space-y-6">
+                                        <h1 className="text-5xl font-black tracking-tighter text-white uppercase leading-tight">{selectedVideo.title}</h1>
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-16 h-16 rounded-[2rem] shordy-gradient flex items-center justify-center font-black text-3xl text-white">
+                                                {selectedVideo.author?.[0] || 'S'}
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-xl tracking-tighter uppercase">{selectedVideo.author}</p>
+                                                <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.4em]">Proxy Verified Stream</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                            <div className="flex items-center justify-between mb-12 px-2">
-                                <h2 className="text-3xl font-black tracking-tighter uppercase flex items-center gap-6">
-                                    <span className="w-3 h-10 shordy-gradient rounded-full"></span>
-                                    Dashboard Feed
-                                </h2>
-                                <div className="flex gap-4">
-                                    {CATEGORIES.slice(0, 3).map(c => (
-                                        <button key={c} className="px-5 py-2 rounded-xl bg-zinc-900/50 border border-white/5 text-[10px] font-black uppercase hover:bg-red-600 transition-all hidden md:block">{c}</button>
-                                    ))}
-                                </div>
-                            </div>
+                            <h2 className="text-3xl font-black tracking-tighter uppercase flex items-center gap-6 mb-12">
+                                <span className="w-3 h-10 shordy-gradient rounded-full"></span>
+                                Dashboard Core
+                            </h2>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-10">
                                 {loading ? (
                                     [...Array(8)].map((_, i) => (
                                         <div key={i} className="space-y-6">
                                             <div className="aspect-video skeleton rounded-[2.5rem]"></div>
-                                            <div className="space-y-4">
-                                                <div className="h-6 skeleton rounded-full w-full"></div>
-                                                <div className="h-4 skeleton rounded-full w-2/3"></div>
-                                            </div>
+                                            <div className="h-6 skeleton rounded-full w-full"></div>
                                         </div>
                                     ))
                                 ) : videos.length > 0 ? (
@@ -321,7 +286,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="px-2 space-y-2">
+                                            <div className="px-2 space-y-1">
                                                 <h3 className="text-sm font-black line-clamp-2 leading-tight group-hover:text-red-500 transition-colors uppercase tracking-tight">{v.title}</h3>
                                                 <div className="flex items-center gap-3 text-[10px] font-black text-zinc-600 uppercase tracking-widest">
                                                     <span className="truncate max-w-[140px]">{v.author}</span>
@@ -332,15 +297,15 @@
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="col-span-full py-40 text-center space-y-10 border border-dashed border-white/10 rounded-[4rem]">
-                                        <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto opacity-50">
-                                            <i data-lucide="wifi-off" className="text-white w-10 h-10"></i>
+                                    <div className="col-span-full py-40 text-center space-y-8 bg-zinc-900/20 rounded-[4rem] border border-white/5">
+                                        <i data-lucide="wifi-off" className="text-zinc-700 w-16 h-16 mx-auto"></i>
+                                        <div>
+                                            <p className="text-zinc-500 font-black uppercase tracking-[0.4em] mb-2">Bypass Failed</p>
+                                            <p className="text-xs text-zinc-700 font-bold max-w-xs mx-auto uppercase leading-relaxed">
+                                                El servidor puente está saturado o las APIs bloquearon el túnel. Reintenta en unos segundos.
+                                            </p>
                                         </div>
-                                        <div className="space-y-2">
-                                            <p className="text-zinc-500 font-black uppercase tracking-[0.4em]">Handshake Fallido</p>
-                                            <p className="text-xs text-zinc-700 max-w-xs mx-auto uppercase font-bold">Las instancias públicas están saturadas. Intenta el Modo Ingeniero.</p>
-                                        </div>
-                                        <button onClick={() => fetchContent()} className="px-10 py-4 shordy-gradient text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl">Reconectar</button>
+                                        <button onClick={() => fetchContent()} className="px-12 py-4 shordy-gradient text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all">Retry Link</button>
                                     </div>
                                 )}
                             </div>
@@ -355,8 +320,8 @@
                 onClick={onClick}
                 className={`flex items-center gap-6 px-8 py-5 rounded-[2rem] cursor-pointer transition-all group ${active ? 'active-tab shadow-xl' : 'text-zinc-600 hover:text-white hover:bg-white/5'}`}
             >
-                <i data-lucide={icon} className={`w-5 h-5 ${active ? 'text-red-500' : 'group-hover:text-red-400'}`}></i>
-                <span className="text-[11px] font-black uppercase tracking-[0.2em]">{label}</span>
+                <i data-lucide={icon} className={`w-6 h-6 ${active ? 'text-red-500' : 'group-hover:text-red-400'}`}></i>
+                <span className="text-[11px] font-black uppercase tracking-[0.3em]">{label}</span>
             </div>
         );
 
