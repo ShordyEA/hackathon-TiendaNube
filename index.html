@@ -3,330 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHORDY.CORE | Systems Engineering V6</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background-color: #010101; 
-            color: #f4f4f5;
-            overflow-x: hidden;
-        }
-        .glass { background: rgba(8, 8, 8, 0.9); backdrop-filter: blur(30px); }
-        .video-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 30px 60px -15px rgba(220, 38, 38, 0.4); }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
-        .active-tab { background: linear-gradient(to right, rgba(220, 38, 38, 0.2), transparent); border-left: 4px solid #dc2626; color: #fff; }
-        
-        .shordy-gradient {
-            background: linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%);
-        }
-
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-        .skeleton {
-            background: linear-gradient(90deg, #0a0a0a 25%, #1a1a1a 50%, #0a0a0a 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-        }
-    </style>
+    <title>TiendaNube — Constructor IA</title>
+    <link rel="stylesheet" href="static/css/style.css">
 </head>
 <body>
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect, useCallback } = React;
-
-        // INSTANCIAS V6 - Selección optimizada
-        const INITIAL_SERVERS = [
-            { name: "Piped Kavin", url: "https://pipedapi.kavin.rocks", type: "piped" },
-            { name: "Piped Rivo", url: "https://pipedapi.rivo.me", type: "piped" },
-            { name: "Invidious Nerdy", url: "https://inv.nrd.li", type: "invidious" },
-            { name: "Invidious v0l", url: "https://invidious.v0l.io", type: "invidious" },
-            { name: "Invidious Pizza", url: "https://inv.tux.pizza", type: "invidious" }
-        ];
-
-        const App = () => {
-            const [videos, setVideos] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [searchQuery, setSearchQuery] = useState("");
-            const [selectedVideo, setSelectedVideo] = useState(null);
-            const [activeServer, setActiveServer] = useState(INITIAL_SERVERS[0]);
-            const [logs, setLogs] = useState([]);
-            const [useProxy, setUseProxy] = useState(true);
-
-            const addLog = (msg, type = "info") => {
-                const time = new Date().toLocaleTimeString();
-                setLogs(prev => [{ time, msg, type }, ...prev].slice(0, 10));
-            };
-
-            // Túnel de Ingeniería para saltar CORS
-            const fetchWithProxy = async (url) => {
-                if (!useProxy) return fetch(url);
-                
-                // Usamos un puente CORS gratuito y robusto
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-                const response = await fetch(proxyUrl);
-                const json = await response.json();
-                
-                if (json.contents) {
-                    return {
-                        ok: true,
-                        json: () => Promise.resolve(JSON.parse(json.contents))
-                    };
-                }
-                throw new Error("Proxy response invalid");
-            };
-
-            const fetchContent = useCallback(async (endpoint = 'trending') => {
-                setLoading(true);
-                let success = false;
-                
-                addLog(`Iniciando Tunneling V6 en ${window.location.hostname}...`);
-
-                for (const server of INITIAL_SERVERS) {
-                    try {
-                        addLog(`Intentando Bridge: ${server.name}`);
-                        
-                        const isInv = server.type === 'invidious';
-                        let apiPath = isInv
-                            ? `${server.url}/api/v1/${endpoint === 'trending' ? 'trending?region=EC' : endpoint}`
-                            : `${server.url}/${endpoint === 'trending' ? 'trending?region=EC' : endpoint}`;
-
-                        const response = await fetchWithProxy(apiPath);
-                        
-                        if (!response.ok) throw new Error(`Status ${response.status}`);
-                        
-                        const data = await response.json();
-                        let normalized = [];
-                        
-                        if (isInv) {
-                            normalized = data.map(v => ({
-                                id: v.videoId,
-                                title: v.title,
-                                author: v.author,
-                                thumb: `https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`,
-                                views: v.viewCountText || "Popular",
-                                date: v.publishedText
-                            }));
-                        } else {
-                            const items = data.items || data;
-                            normalized = items.map(v => ({
-                                id: v.videoId || v.url?.split("v=")[1],
-                                title: v.title,
-                                author: v.uploaderName || v.uploader,
-                                thumb: v.thumbnail || `https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`,
-                                views: v.views?.toLocaleString() || "Streaming",
-                                date: v.uploadedDate
-                            }));
-                        }
-
-                        if (normalized && normalized.length > 0) {
-                            setVideos(normalized);
-                            setActiveServer(server);
-                            addLog(`Enlace bypass exitoso: ${server.name}`, "success");
-                            success = true;
-                            break;
-                        }
-                    } catch (e) {
-                        addLog(`${server.name}: Error de Tunelización`, "error");
-                    }
-                }
-
-                if (!success) {
-                    addLog("CRÍTICO: El Firewall de las APIs es impenetrable hoy.", "error");
-                }
-                setLoading(false);
-                setTimeout(() => window.lucide && window.lucide.createIcons(), 200);
-            }, [useProxy]);
-
-            useEffect(() => {
-                fetchContent();
-            }, [fetchContent]);
-
-            const handleSearch = (e) => {
-                e.preventDefault();
-                if (!searchQuery.trim()) return;
-                fetchContent(`search?q=${encodeURIComponent(searchQuery)}&filter=videos`);
-            };
-
-            return (
-                <div className="flex min-h-screen bg-[#010101]">
-                    {/* SIDEBAR */}
-                    <aside className="w-72 border-r border-white/5 hidden xl:flex flex-col fixed h-full bg-[#010101] z-50">
-                        <div className="p-8 mb-2 flex items-center gap-4">
-                            <div className="w-12 h-12 shordy-gradient rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(220,38,38,0.3)]">
-                                <i data-lucide="zap" className="text-white w-6 h-6 fill-current"></i>
-                            </div>
-                            <div>
-                                <h1 className="font-black tracking-tighter text-2xl leading-none uppercase">Shordy</h1>
-                                <p className="text-[10px] font-bold text-red-600 tracking-[0.4em] mt-1 uppercase">Core V6 Proxy</p>
-                            </div>
-                        </div>
-                        
-                        <nav className="flex-1 px-4 space-y-1">
-                            <NavItem icon="monitor" label="Main Station" active={true} onClick={() => fetchContent('trending')} />
-                            <NavItem icon="activity" label="Network Feed" onClick={() => fetchContent('trending')} />
-                            <div className="my-8 border-t border-white/5 mx-2"></div>
-                            <div className="px-6 py-4 bg-zinc-900/40 rounded-3xl border border-white/5 mx-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-[10px] font-black text-zinc-500 uppercase">CORS Bypass</span>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={useProxy} 
-                                        onChange={() => setUseProxy(!useProxy)}
-                                        className="w-4 h-4 accent-red-600"
-                                    />
-                                </div>
-                                <p className="text-[9px] text-zinc-600 leading-tight">Usa un túnel externo para evitar el bloqueo del navegador.</p>
-                            </div>
-                        </nav>
-
-                        <div className="p-6 m-6 bg-zinc-900/20 rounded-[2.5rem] border border-white/5">
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Logs de Sistemas</span>
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                            </div>
-                            <div className="space-y-2 font-mono text-[9px] max-h-40 overflow-y-auto custom-scrollbar">
-                                {logs.map((l, i) => (
-                                    <p key={i} className={`leading-relaxed ${l.type === 'error' ? 'text-red-400' : l.type === 'success' ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                                        <span className="opacity-40">[{l.time.split(':')[2]}]</span> {l.msg}
-                                    </p>
-                                ))}
-                            </div>
-                        </div>
-                    </aside>
-
-                    {/* MAIN */}
-                    <main className="flex-1 xl:ml-72 relative">
-                        <header className="sticky top-0 h-24 glass z-40 flex items-center justify-between px-10 border-b border-white/5">
-                            <form onSubmit={handleSearch} className="flex-1 max-w-2xl relative group">
-                                <i data-lucide="search" className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 group-focus-within:text-red-500 transition-colors"></i>
-                                <input 
-                                    type="text" 
-                                    placeholder="Buscar videos via Proxy..." 
-                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-14 pr-6 outline-none focus:ring-2 focus:ring-red-600/20 transition-all text-sm font-semibold"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                />
-                            </form>
-                            <div className="flex items-center gap-6 ml-6">
-                                <div className="text-right hidden sm:block">
-                                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Active Station</p>
-                                    <p className="text-xs font-bold text-white uppercase">{activeServer.name}</p>
-                                </div>
-                                <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center font-black text-red-600 shadow-xl">S</div>
-                            </div>
-                        </header>
-
-                        <div className="px-10 py-10 pb-40">
-                            {selectedVideo && (
-                                <div className="mb-20 animate-in fade-in zoom-in-95 duration-700">
-                                    <div className="aspect-video w-full rounded-[3rem] overflow-hidden bg-black border border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,1)] relative group">
-                                        <iframe 
-                                            src={activeServer.type === 'piped' 
-                                                ? `${activeServer.url.replace('api.', '')}/embed/${selectedVideo.id}`
-                                                : `${activeServer.url}/embed/${selectedVideo.id}?dark_mode=true&autoplay=1`
-                                            }
-                                            className="w-full h-full"
-                                            frameBorder="0"
-                                            allowFullScreen
-                                        />
-                                        <button onClick={() => setSelectedVideo(null)} className="absolute top-6 right-6 p-3 bg-black/60 backdrop-blur-md rounded-2xl text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <i data-lucide="x" className="w-5 h-5"></i>
-                                        </button>
-                                    </div>
-                                    <div className="mt-12 space-y-6">
-                                        <h1 className="text-5xl font-black tracking-tighter text-white uppercase leading-tight">{selectedVideo.title}</h1>
-                                        <div className="flex items-center gap-6">
-                                            <div className="w-16 h-16 rounded-[2rem] shordy-gradient flex items-center justify-center font-black text-3xl text-white">
-                                                {selectedVideo.author?.[0] || 'S'}
-                                            </div>
-                                            <div>
-                                                <p className="font-black text-xl tracking-tighter uppercase">{selectedVideo.author}</p>
-                                                <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.4em]">Proxy Verified Stream</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <h2 className="text-3xl font-black tracking-tighter uppercase flex items-center gap-6 mb-12">
-                                <span className="w-3 h-10 shordy-gradient rounded-full"></span>
-                                Dashboard Core
-                            </h2>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-10">
-                                {loading ? (
-                                    [...Array(8)].map((_, i) => (
-                                        <div key={i} className="space-y-6">
-                                            <div className="aspect-video skeleton rounded-[2.5rem]"></div>
-                                            <div className="h-6 skeleton rounded-full w-full"></div>
-                                        </div>
-                                    ))
-                                ) : videos.length > 0 ? (
-                                    videos.map((v, i) => (
-                                        <div 
-                                            key={v.id + i} 
-                                            className="video-card group cursor-pointer space-y-5 transition-all duration-500" 
-                                            onClick={() => { setSelectedVideo(v); window.scrollTo({top: 0, behavior: 'smooth'}); }}
-                                        >
-                                            <div className="relative aspect-video rounded-[2.5rem] overflow-hidden border border-white/5 bg-zinc-900 shadow-2xl">
-                                                <img src={v.thumb} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 group-hover:opacity-10" loading="lazy" />
-                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500">
-                                                    <div className="w-16 h-16 shordy-gradient rounded-[1.5rem] flex items-center justify-center shadow-2xl rotate-6 group-hover:rotate-0 transition-all">
-                                                        <i data-lucide="play" className="text-white w-8 h-8 fill-current translate-x-1"></i>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="px-2 space-y-1">
-                                                <h3 className="text-sm font-black line-clamp-2 leading-tight group-hover:text-red-500 transition-colors uppercase tracking-tight">{v.title}</h3>
-                                                <div className="flex items-center gap-3 text-[10px] font-black text-zinc-600 uppercase tracking-widest">
-                                                    <span className="truncate max-w-[140px]">{v.author}</span>
-                                                    <span className="w-1 h-1 bg-red-600 rounded-full"></span>
-                                                    <span>{v.views}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="col-span-full py-40 text-center space-y-8 bg-zinc-900/20 rounded-[4rem] border border-white/5">
-                                        <i data-lucide="wifi-off" className="text-zinc-700 w-16 h-16 mx-auto"></i>
-                                        <div>
-                                            <p className="text-zinc-500 font-black uppercase tracking-[0.4em] mb-2">Bypass Failed</p>
-                                            <p className="text-xs text-zinc-700 font-bold max-w-xs mx-auto uppercase leading-relaxed">
-                                                El servidor puente está saturado o las APIs bloquearon el túnel. Reintenta en unos segundos.
-                                            </p>
-                                        </div>
-                                        <button onClick={() => fetchContent()} className="px-12 py-4 shordy-gradient text-white rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all">Retry Link</button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </main>
+    <div class="layout-wrapper">
+        <section class="chat-section">
+            <header>
+                <h1>TiendaNube <span>IA</span></h1>
+                <p>Tu asistente para construir tiendas reales.</p>
+            </header>
+            <main id="chat-window">
+                <div id="chat-messages">
+                    <div class="message bot">
+                        ¡Bienvenido! Soy tu arquitecto de TiendaNube. 
+                        Dime qué tipo de tienda quieres y la construiré en el visor de la derecha.
+                    </div>
                 </div>
-            );
-        };
+            </main>
+            <footer>
+                <form id="chat-form">
+                    <input type="text" id="user-input" placeholder="Ej: Crea una tienda de ropa minimalista..." autocomplete="off" required>
+                    <button type="submit" id="send-btn">Enviar</button>
+                </form>
+            </footer>
+        </section>
 
-        const NavItem = ({ icon, label, active, onClick }) => (
-            <div 
-                onClick={onClick}
-                className={`flex items-center gap-6 px-8 py-5 rounded-[2rem] cursor-pointer transition-all group ${active ? 'active-tab shadow-xl' : 'text-zinc-600 hover:text-white hover:bg-white/5'}`}
-            >
-                <i data-lucide={icon} className={`w-6 h-6 ${active ? 'text-red-500' : 'group-hover:text-red-400'}`}></i>
-                <span className="text-[11px] font-black uppercase tracking-[0.3em]">{label}</span>
+        <aside class="visor-section">
+            <div class="visor-toolbar">
+                <div class="status-dot connected"></div>
+                <span class="visor-title">Vista Previa en Vivo</span>
+                <button id="toggle-code" class="btn-tool">Ver Código</button>
             </div>
-        );
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+            <div id="preview-container">
+                <iframe id="store-preview" title="Vista previa de la tienda"></iframe>
+                <div id="code-overlay" class="hidden">
+                    <pre><code id="full-code"></code></pre>
+                </div>
+            </div>
+        </aside>
+    </div>
+    <script src="static/js/script.js"></script>
 </body>
 </html>
