@@ -1,0 +1,13 @@
+# Entorno virtual
+venv/
+.venv/
+
+# Archivos de Python (compilados)
+__pycache__/
+*.py[cod]
+
+# Variables de entorno (Seguridad)
+.env
+
+# Respaldo del proyecto original
+base_main/
